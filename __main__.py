@@ -1,5 +1,6 @@
+from src import parser
 from src import reader
 
 if __name__ == '__main__':
-    for disease, year in reader.diseases_years():
-        print(disease, year)
+    for file, disease in reader.read():
+        parser.parse(file, disease)

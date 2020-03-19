@@ -15,5 +15,5 @@ setup(
     description='DOCX parser for medical students\' coursework',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    python_requires='>=3.7'
+    python_requires='>=3.7', install_requires=['python-docx', 'psycopg2']
 )

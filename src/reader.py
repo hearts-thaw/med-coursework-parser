@@ -4,12 +4,12 @@ import re
 
 config = configparser.ConfigParser()
 config.read("config.ini")
+path = config["READER"]["path"]
 
 
-def diseases_years():
-    for _, _, f in os.walk(config["READER"]["path"]):
+def read():
+    for _, _, f in os.walk(path):
         for file in f:
             if file.startswith(".~lock."):
                 continue
-            yield " ".join(re.findall("([а-яА-ЯёЁ]+)", file)),\
-                  tuple(map(int, re.search("([0-9]+)-([0-9]+)", file).groups()))
+            yield path + file, " ".join(re.findall("([а-яА-ЯёЁ]+)", file)).replace('\n', ' ')
