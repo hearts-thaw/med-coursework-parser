@@ -3,7 +3,9 @@ import psycopg2
 from docx import Document
 
 config = configparser.ConfigParser()
-config.read("config.ini")
+# UNCOMMENT FOR YOUR OWN CONFIG (and comment next line after that)
+# config.read("config.ini")
+config.read("local_config.ini")
 dbinfo = config["PARSER"]
 
 null_check = lambda x: x if x != '-' else None
