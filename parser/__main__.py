@@ -1,5 +1,4 @@
-from src import parser
-from src import reader
+from parser import reader, parser
 
 if __name__ == '__main__':
     for file, disease in reader.read():
