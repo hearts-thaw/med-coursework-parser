@@ -1,84 +1,69 @@
+from docx import Document
 import configparser
 import psycopg2
-from docx import Document
 
 config = configparser.ConfigParser()
-# UNCOMMENT FOR YOUR OWN CONFIG (and comment next line after that)
-# config.read("config.ini")
-config.read("local_config.ini")
-dbinfo = config["PARSER"]
-
-null_check = lambda x: x if x != '-' else None
-is_district = lambda x: any(("федеральный округ" in x, "федерация" in x, "управления" in x, "крымский" not in x))
+# COMMENT FOR YOUR OWN CONFIG (and uncomment next line after that)
+config.read("../config.ini")
+# config.read("local_config.ini")
+dbinfo = config['PARSER']
 
 
 def parse(file, disease):
+    conn = None
+    cur = None
+
     document = Document(file)
 
-    conn = psycopg2.connect(database=dbinfo["database"], user=dbinfo["user"],
-                            password=dbinfo["password"], host=dbinfo["host"], port=dbinfo["port"])
-    cur = conn.cursor()
+    try:
 
-    cur.execute("SELECT * FROM federal_districts;")
-    districts = {x[0] for x in cur.fetchall() if is_district(x[0])}
+        conn = psycopg2.connect(database=dbinfo["database"], user=dbinfo["user"],
+                                password=dbinfo["password"], host=dbinfo["host"], port=dbinfo["port"])
+        cur = conn.cursor()
 
-    for table in document.tables:
-        year1, year2 = 0, 0
-        for row in table.rows:
-            query1 = list()
-            query2 = list()
-            t = [cell for cell in iter_cells(row)]
-            if "субъекты федерации" in t:
-                year1, year2 = null_check(t[1]), null_check(t[2])
-                continue
-            elif t[0] in districts:
-                if disease == "ВИЧ":
-                    hiv = True
-                else:
-                    hiv = False
+        query = """ INSERT INTO diseases (disease, year, abs, abs_child, rel, rel_child, district, predicted)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s) """
 
-                if year1:
-                    query1 += [disease, year1, t[0]] + list(map(to_num,
-                                                                list(map(null_check,
-                                                                         t[1:9:2] if hiv else t[1:5:2]))))
-                if year2:
-                    query2 += [disease, year2, t[0]] + list(map(to_num,
-                                                                list(map(null_check,
-                                                                         t[2:9:2] if hiv else t[2:5:2]))))
+        cur.execute("SELECT * FROM federal_districts ")
 
-                if query1:
-                    execute(conn, cur, query1, hiv)
-                if query2:
-                    execute(conn, cur, query2, hiv)
+        districts = [x[0] for x in cur.fetchall()]
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        for table in document.tables:
+            for i in range(len(table.rows)):
+                row_cells = table.row_cells(i)
+                district = row_cells[0].text.lower()
+                if district in districts:
+
+                    len_of_row = len(row_cells)
+
+                    if table.column_cells(1)[0].text:
+                        data = getData(table, 1, row_cells, len_of_row != 5)
+                        data.insert(0, disease)
+                        data.append(district)
+                        data.append(False)
+                        cur.execute(query, data)
+                    if table.column_cells(2)[0].text:
+                        data = getData(table, 2, row_cells, len_of_row != 5)
+                        data.insert(0, disease)
+                        data.append(district)
+                        data.append(False)
+                        cur.execute(query, data)
+                    conn.commit()
+    except psycopg2.Error as error:
+        print("Failed inserting record into table {}".format(error))
+    finally:
+        if (conn):
+            cur.close()
+            cur.close()
+            print("PostgreSQL connection is closed")
 
 
-def execute(conn, cur, query, hiv):
-    if not hiv:
-        try:
-            cur.execute(
-                "INSERT INTO diseases (disease, year, district, abs, rel, abs_child, rel_child, predicted)"
-                " VALUES (%s, %s, %s, %s, %s, NULL, NULL, false);", query)
-        except:
-            conn.rollback()
-            cur.execute("UPDATE diseases"
-                        " SET abs = %s, rel = %s, abs_child = %s, rel_child = %s"
-                        " WHERE disease = %s AND year = %s AND district = %s",
-                        query[:-3:-1] + [None, None] + query[:3])
-    else:
-        try:
-            cur.execute(
-                "INSERT INTO diseases (disease, year, district, abs, rel, abs_child, rel_child, predicted)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, false);", query)
-        except:
-            conn.rollback()
-            cur.execute("UPDATE diseases"
-                        " SET abs = %s, rel = %s, abs_child = %s, rel_child = %s"
-                        " WHERE disease = %s AND year = %s AND district = %s",
-                        query[:-5:-1] + query[:3])
+def is_integer_num(n):
+    if isinstance(n, int):
+        return True
+    if isinstance(n, float):
+        return n.is_integer()
+    return False
 
 
 def to_num(string):
@@ -91,14 +76,26 @@ def to_num(string):
         return float(string)
 
 
-def is_integer_num(n):
-    if isinstance(n, int):
-        return True
-    if isinstance(n, float):
-        return n.is_integer()
-    return False
+def getData(table, order, row_cells, isHiv):
+    data = list()
 
+    year = int(table.column_cells(order)[0].text)
 
-def iter_cells(row):
-    for cell in row.cells:
-        yield cell.paragraphs[0].text.strip().lower()
+    data.append(year)
+    if isHiv:
+        for i in range(order, len(row_cells), 2):
+            text = row_cells[i].text
+            if text != "-":
+                data.append(to_num(text))
+            else:
+                data.append(None)
+    else:
+        for i in range(order, len(row_cells), 2):
+            text = row_cells[i].text
+            if text != "-":
+                data.append(to_num(text))
+            else:
+                data.append(None)
+            data.append(None)
+
+    return data

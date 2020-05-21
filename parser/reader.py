@@ -4,8 +4,8 @@ import re
 
 config = configparser.ConfigParser()
 # UNCOMMENT FOR YOUR OWN CONFIG (and comment next line after that)
-# config.read("config.ini")
-config.read("local_config.ini")
+config.read("../config.ini")
+# config.read("local_config.ini")
 path = config["READER"]["path"]
 
 
