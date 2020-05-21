@@ -12,8 +12,7 @@ dbinfo = config['PARSER']
 def parse(file, disease):
     conn = None
     cur = None
-
-    document = Document(file)
+    document = Document('../medical_students_project/' + file.split("/")[-1])
 
     try:
 
@@ -32,8 +31,11 @@ def parse(file, disease):
             for i in range(len(table.rows)):
                 row_cells = table.row_cells(i)
                 district = row_cells[0].text.lower()
+                if disease == 'Сахарный диабет':
+                    print(district)
                 if district in districts:
-
+                    if disease == 'Сахарный диабет':
+                        print("matched")
                     len_of_row = len(row_cells)
 
                     if table.column_cells(1)[0].text:
@@ -42,12 +44,16 @@ def parse(file, disease):
                         data.append(district)
                         data.append(False)
                         cur.execute(query, data)
+                        if disease == 'Сахарный диабет':
+                            print(*data)
                     if table.column_cells(2)[0].text:
                         data = getData(table, 2, row_cells, len_of_row != 5)
                         data.insert(0, disease)
                         data.append(district)
                         data.append(False)
                         cur.execute(query, data)
+                        if disease == 'Сахарный диабет':
+                            print(*data)
                     conn.commit()
     except psycopg2.Error as error:
         print("Failed inserting record into table {}".format(error))
