@@ -1,4 +1,4 @@
 certifi==2019.11.28
-lxml==4.5.0
+lxml==4.6.2
 psycopg2==2.8.4
 python-docx==0.8.10
